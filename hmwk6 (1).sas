@@ -1,0 +1,47 @@
+filename aaa 'C:\Users\vr02477\Desktop\whas100.dat';
+data main;
+infile aaa;
+input id adddate$ foldate$ hosstay foltime folsta age gender bmi;
+time=foltime/365.25;
+gb=gender*bmi;
+run;
+
+proc phreg data = main outest=main covout;
+model time*folsta(0)= age gender bmi;
+id id;
+output out=whas ressch = age gender bmi;
+run;
+proc means data = main;
+var age gender bmi;
+run;
+
+ods graphics on;
+proc phreg data = main outest=main covout;
+model time*folsta(0)= age gender bmi gb;
+id id;
+output out=whas ressch = age gender bmi;
+run;
+filename aaa 'C:\Users\vr02477\Desktop\whas100.dat';
+data main;
+infile aaa;
+input id adddate$ foldate$ hosstay foltime folsta age gender bmi;
+time=foltime/365.25;
+gb=gender*bmi;
+run;
+ods graphics on;
+proc phreg data=main plot(overlay)=survival;
+   model time*folsta(0)= age gender bmi gb;
+   baseline covariates=main out=_null_;
+run;
+
+filename aaa 'C:\Users\vr02477\Desktop\whas100.dat';
+data main;
+infile aaa;
+input id adddate$ foldate$ hosstay foltime folsta age gender bmi;
+time=foltime/365.25;
+gb=gender*bmi;
+run;
+proc lifetest data = main;
+time time*folsta(0);
+id age bmi gender gb;
+run;
