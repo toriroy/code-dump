@@ -1,0 +1,18 @@
+filename aaa 'C:\Documents and Settings\lyu\My Documents\yulili\course\survival data\ch2\2009\whas100.dat';
+data main;
+infile aaa;
+input id ent$ end$ stay time censor age gender bmi;
+if age lt 60 then agegrp=1;
+if (age ge 60 and age le 69) then agegrp=2;
+if (age ge 70 and age le 79) then agegrp=3;
+if (age ge 80) then agegrp=4;
+proc lifetest data=main method=pl plots=(c s ls lls);
+time time*censor(0);
+strata agegrp/test=(logrank tarone peto wilcoxon);
+title1 "Product limit survival analysis for WHAS data 4 group";
+run;
+proc lifetest data=main method=pl;
+time time*censor(0);
+strata agegrp/test=(logrank tarone peto wilcoxon)trend;
+title1 "Product limit for WHAS data 4 group SAS trend test";
+run;

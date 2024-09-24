@@ -1,0 +1,28 @@
+filename aaa 'C:\Documents and Settings\lyu\My Documents\yulili\course\survival data\ch2\2009\whas100.dat';
+data main;
+infile aaa;
+input id ent$ end$ stay time censor age gender bmi;
+proc lifetest data=main method=pl plots=(c s ls lls);
+time time*censor(0);
+survival out=out confband=all stderr;
+title1 "Product limit survival analysis for WHAS100 data";
+run;
+proc print data=out;
+run;
+symbol1 l=1 v=square c=black interpol=stepJ;
+symbol2 l=2 v=circle c=black interpol=stepJ;
+symbol3 l=2 v=circle c=black interpol=stepJ;
+axis1 label=('survival' );
+
+proc gplot data=out;
+plot  survival*time sdf_ucl*time sdf_lcl*time/overlay vaxis=axis1;
+title2 "survival function with individual confidence limits";
+run;
+proc gplot data=out;
+plot  survival*time hw_ucl*time hw_lcl*time/overlay vaxis=axis1;
+title2 "survival function with Hall Wellner confidence limits";
+run;
+proc gplot data=out;
+plot  survival*time ep_ucl*time ep_lcl*time/overlay vaxis=axis1;
+title2 "survival function with equal precision confidence limits";
+run;
