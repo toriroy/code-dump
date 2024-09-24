@@ -1,0 +1,45 @@
+* ANCOVA for pre-post data;
+proc sgplot data=data1;
+    title "Scatter plot to see correlation of score_pre and score_post in each group";
+    reg x=score_pre  y=score_post /  group=instrument;
+run;
+
+* Assuming pre-treatment score has an effect on post treatment score;
+   * step1: get the eman of the score_pre values;
+   proc means data=data1 mean;
+   class instrument;
+   var score_pre ;
+   run;
+	* step2: center the score_pre values;
+   data data2;
+   set data1;
+   score_pre_c=score_pre -100.0; *use the mean value from step 1 instead of 100.0;
+   diff_score=score_pre - score_post;
+   run;
+* step3: test if the lines are parallel - is the interaction significant;
+* if the interaction is significant then use the findings from the below analysis;
+ods graphics on;
+   proc glm data=data2;
+      class instrument;
+      model score_post = instrument score_pre_c instrument*score_pre_c/ solution clparm;
+      lsmeans instrument / stderr pdiff cov ;
+   run;
+ods graphics off;
+
+* step4: if the the interaction is NOT significant - treatment differences adjsuted for pre scores;
+ods graphics on;
+proc glm data=data2;
+      class instrument;
+      model score_post = instrument score_pre_c / solution clparm;
+      lsmeans instrument / stderr pdiff cov;
+   run;
+ods graphics off; 
+
+* step5: if the the interaction is NOT significant - treatment differences in the difference;
+ods graphics on;
+proc glm data=data2;
+      class instrument;
+      model diff_score = instrument/ solution clparm;
+      lsmeans instrument / stderr pdiff cov;
+   run;
+ods graphics off; 
