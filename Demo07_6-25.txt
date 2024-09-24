@@ -1,0 +1,427 @@
+/* Examples 1-3: Plots on Slides 7-16 */
+
+*Example 1: Dental Growth Data;
+
+data forglm(keep = person gender y1-y4)
+     formixed(keep = person gender age y);
+ input person gender$ y1-y4;
+ output forglm;
+ y = y1; age =  8; output formixed;
+ y = y2; age = 10; output formixed;
+ y = y3; age = 12; output formixed;
+ y = y4; age = 14; output formixed;
+datalines;
+ 1 F 21.0 20.0 21.5 23.0
+ 2 F 21.0 21.5 24.0 25.5
+ 3 F 20.5 24.0 24.5 26.0
+ 4 F 23.5 24.5 25.0 26.5
+ 5 F 21.5 23.0 22.5 23.5
+ 6 F 20.0 21.0 21.0 22.5
+ 7 F 21.5 22.5 23.0 25.0
+ 8 F 23.0 23.0 23.5 24.0
+ 9 F 20.0 21.0 22.0 21.5
+10 F 16.5 19.0 19.0 19.5
+11 F 24.5 25.0 28.0 28.0
+12 M 26.0 25.0 29.0 31.0
+13 M 21.5 22.5 23.0 26.5
+14 M 23.0 22.5 24.0 27.5
+15 M 25.5 27.5 26.5 27.0
+16 M 20.0 23.5 22.5 26.0
+17 M 24.5 25.5 27.0 28.5
+18 M 22.0 22.0 24.5 26.5
+19 M 24.0 21.5 24.5 25.5
+20 M 23.0 20.5 31.0 26.0
+21 M 27.5 28.0 31.0 31.5
+22 M 23.0 23.0 23.5 25.0
+23 M 21.5 23.5 24.0 28.0
+24 M 17.0 24.5 26.0 29.5
+25 M 22.5 25.5 25.5 26.0
+26 M 23.0 24.5 26.0 30.0
+27 M 22.0 21.5 23.5 25.0
+;
+
+*matrix plot;
+title 'Pituitary-Pteryomaxillary Distances';
+proc sgscatter data = forglm;
+ matrix y1--y4 / diagonal = (histogram kernel);
+run;
+
+*mean plot using proc glimmix;
+proc glimmix data = formixed;
+ class gender person age;
+ model y = gender age gender*age/noint;
+ random _residual_ / subject = person type = cs;
+ lsmeans gender*age / plot = meanplot (sliceby = gender join);
+ *requests a graphical display for the interaction LS means;
+run;
+
+*profile plot, color by gender;
+title 'Observed Data, All Subjects';
+proc sgplot noautolegend data = formixed;
+ *observed trends;
+ series x = age y = y / group = gender
+ 						lineattrs = (thickness = 1);
+run;
+
+*Example 2: Randomized 2 Groups Data;
+
+data short;
+ input Group Subj y0 y1 y3 y6;
+datalines;
+1  1 296 175 187 242
+1  2 376 329 236 126
+1  3 309 238 150 173
+1  4 222  60  82 135
+1  5 150 271 250 266
+1  6 316 291 238 194
+1  7 321 364 270 358
+1  8 447 402 294 266
+1  9 220  70  95 137
+1 10 375 335 334 129
+1 11 310 300 253 190
+1 12 310 245 200 170
+2 13 282 186 225 134
+2 14 317  31  85 120
+2 15 362 104 144 114
+2 16 338 132  91  77
+2 17 263  94 141 142
+2 18 138  38  16  95
+2 19 329  62  62   6
+2 20 292 139 104 184
+2 21 275  94 135 137
+2 22 150  48  20  85
+2 23 319  68  67  12
+2 24 300 138 114  12
+;
+
+data long;
+ set short;
+ time = 0; y = y0; output;
+ time = 1; y = y1; output;
+ time = 3; y = y3; output;
+ time = 6; y = y6; output;
+ drop y0 y1 y3 y6;
+run;
+
+proc print data = long; run;
+
+*mean plot using proc glimmix;
+proc glimmix data = long;
+ class group subj time;
+ model y = group time group*time / noint;
+ random _residual_ / subject = subj type = cs;
+ lsmeans group*time / plot = meanplot (sliceby = group join);
+ *requests a graphical display for the interaction LS means;
+run;
+
+*Example 3: Alzheimer's Data;
+
+filename alzh '/home/u59445923/Data/Alzh_wide.csv';
+* import data into SAS;
+proc import datafile = alzh replace dbms = csv out = alzh_wide;
+ getnames = yes;
+run;
+
+data alzh_long; 
+ set alzh_wide;
+ array yy(5) score1-score5;
+ do visit = 1 to 5;
+  score = yy(visit); output;
+ end;
+ drop score1-score5;
+run;
+
+title 'Observed Data, All Subjects';
+proc sgpanel noautolegend data = alzh_long;
+ panelby lecithin;
+ *observed trends;
+ series x = visit y = score / group = idno
+ 							  lineattrs = (thickness = 1 pattern = 1);
+run;
+
+*mean plot;
+proc sgplot data = alzh_long;
+ *mean trends;
+ vline visit / response = score stat = mean group = lecithin
+ 			   lineattrs = (thickness = 2) markers
+ 			   markerattrs = (size = 2MM) datalabel;
+run;
+
+*correlation;
+proc corr data = alzh_wide cov;
+ var score1 score2 score3 score4 score5;
+run;
+
+proc print data = alzh_long (obs = 50); run;
+
+proc mixed data = alzh_long;
+ class idno visit;
+ model score = lecithin visit lecithin*visit / s;
+ repeated / type = un sub = idno r rcorr;
+run;
+
+*Example 4: Bioimpedence Data;
+
+*Example 5: QoL Data;
+
+*Example 6: VA Data;
+
+/* Example 1: Dental Growth Data from Slide 42 */
+
+data forglm(keep = person gender y1-y4)
+     formixed(keep = person gender age y);
+ input person gender$ y1-y4;
+ output forglm;
+ y = y1; age =  8; output formixed;
+ y = y2; age = 10; output formixed;
+ y = y3; age = 12; output formixed;
+ y = y4; age = 14; output formixed;
+datalines;
+ 1 F 21.0 20.0 21.5 23.0
+ 2 F 21.0 21.5 24.0 25.5
+ 3 F 20.5 24.0 24.5 26.0
+ 4 F 23.5 24.5 25.0 26.5
+ 5 F 21.5 23.0 22.5 23.5
+ 6 F 20.0 21.0 21.0 22.5
+ 7 F 21.5 22.5 23.0 25.0
+ 8 F 23.0 23.0 23.5 24.0
+ 9 F 20.0 21.0 22.0 21.5
+10 F 16.5 19.0 19.0 19.5
+11 F 24.5 25.0 28.0 28.0
+12 M 26.0 25.0 29.0 31.0
+13 M 21.5 22.5 23.0 26.5
+14 M 23.0 22.5 24.0 27.5
+15 M 25.5 27.5 26.5 27.0
+16 M 20.0 23.5 22.5 26.0
+17 M 24.5 25.5 27.0 28.5
+18 M 22.0 22.0 24.5 26.5
+19 M 24.0 21.5 24.5 25.5
+20 M 23.0 20.5 31.0 26.0
+21 M 27.5 28.0 31.0 31.5
+22 M 23.0 23.0 23.5 25.0
+23 M 21.5 23.5 24.0 28.0
+24 M 17.0 24.5 26.0 29.5
+25 M 22.5 25.5 25.5 26.0
+26 M 23.0 24.5 26.0 30.0
+27 M 22.0 21.5 23.5 25.0
+;
+
+*matrix plot;
+title 'Pituitary-Pteryomaxillary Distances';
+proc sgscatter data = forglm;
+ matrix y1--y4 / diagonal = (histogram kernel);
+run;
+
+title 'Observed Data, All Subjects';
+proc sgpanel noautolegend data = formixed;
+ panelby gender;
+ *observed trends;
+ series x = age y = y / group = person
+ 						lineattrs = (thickness = 1);
+run;
+
+title 'Means Across Ages by Gender';
+proc sgplot data = formixed;
+ *mean trends;
+ vline age / response = y stat = mean group = gender
+ 			 lineattrs = (thickness = 2) markers
+ 			 markerattrs = (size = 2MM) datalabel;
+run;
+
+*mean plot using proc glimmix;
+proc glimmix data = formixed;
+ class gender person age;
+ model y = gender age gender*age/noint;
+ random _residual_ / subject = person type = cs;
+ lsmeans gender*age / plot = meanplot (sliceby = gender join);
+ *requests a graphical display for the interaction LS means;
+run;
+
+*correlation;
+proc corr data = forglm cov;
+ var y1 y2 y3 y4;
+run;
+
+proc mixed data = formixed cl;
+ class gender age person;
+ model y = gender age age*gender / s chisq;
+ repeated / type = un sub = person r rcorr;
+run;
+
+*spline analysis;
+data spline;
+ set formixed;
+ st1 = min(age, 10); *knot at age = 10;
+ st2 = max(0, age - 10);
+run;
+
+proc mixed data = spline;
+ class person age gender;
+ model y = gender st1 st2 st1*gender st2*gender / s chisq;
+ repeated age / type = un subject = person r;
+run;
+
+proc mixed data = formixed method = REML;
+ class gender person;
+ model y = gender|age;
+ repeated / type = un sub = person;
+run;
+
+proc mixed data = formixed method = REML;
+ class gender person;
+ model y = gender|age|age;
+ repeated / type = un sub = person;
+run;
+
+proc mixed data = formixed method = ML;
+ class gender person;
+ model y = gender|age;
+ repeated / type = cs sub = person;
+run;
+
+proc mixed data = formixed method = ML;
+ class gender person;
+ model y = gender|age|age;
+ repeated / type = cs sub = person;
+run;
+
+/* Example 2: Lead Data from Slide 53 */
+
+data lead;
+ input id  trt$ week0 week1 week4 week6;
+datalines;
+1      P     30.8    26.9    25.8    23.8
+2      A     26.5    14.8    19.5    21.0
+3      A     25.8    23.0    19.1    23.2
+4      P     24.7    24.5    22.0    22.5
+5      A     20.4     2.8     3.2     9.4
+6      A     20.4     5.4     4.5    11.9
+7      P     28.6    20.8    19.2    18.4
+8      P     33.7    31.6    28.5    25.1
+9      P     19.7    14.9    15.3    14.7
+10      P     31.1    31.2    29.2    30.1
+11      P     19.8    17.5    20.5    27.5
+12      A     24.8    23.1    24.6    30.9
+13      P     21.4    26.3    19.5    19.0
+14      A     27.9     6.3    18.5    16.3
+15      P     21.1    20.3    18.4    20.8
+16      P     20.6    23.9    19.0    17.0
+17      P     24.0    16.7    21.7    20.3
+18      P     37.6    33.7    34.4    31.4
+19      A     35.3    25.5    26.3    30.3
+20      A     28.6    15.8    22.9    25.9
+21      P     31.9    27.9    27.3    34.2
+22      A     29.6    15.8    23.7    23.4
+23      A     21.5     6.5     7.1    16.0
+24      P     26.2    26.8    25.3    24.8
+25      A     21.8    12.0    16.8    19.2
+26      A     23.0     4.2     4.0    16.2
+27      A     22.2    11.5     9.5    14.5
+28      P     20.5    21.1    17.4    21.1
+29      A     25.0     3.9    12.8    12.7
+30      P     33.3    26.2    34.0    28.2
+31      A     26.0    21.4    21.0    22.4
+32      A     19.7    13.2    14.6    11.6
+33      P     27.9    21.6    23.6    27.7
+34      P     24.7    21.2    22.9    21.9
+35      P     28.8    26.4    23.8    22.0
+36      A     29.6    17.5    21.0    24.2
+37      P     32.0    30.2    30.2    27.5
+38      P     21.8    19.3    16.4    17.6
+39      A     24.4    16.4    11.6    16.6
+40      A     33.7    14.9    14.5    63.9
+41      P     24.9    20.9    22.2    19.8
+42      P     19.8    18.9    18.9    15.5
+43      A     26.7     6.4     5.1    15.1
+44      A     26.8    20.4    19.3    23.8
+45      A     20.2    10.6     9.0    16.0
+46      P     35.4    30.4    26.5    28.1
+47      P     25.3    23.9    22.2    27.2
+48      A     20.2    17.5    17.4    18.6
+49      A     24.5    10.0    15.6    15.2
+50      P     20.3    21.0    16.7    13.5
+51      P     20.4    17.2    15.9    17.7
+52      P     24.1    20.1    17.9    18.7
+53      A     27.1    14.9    18.1    21.3
+54      A     34.7    39.0    28.8    34.7
+55      P     28.5    32.6    27.5    22.8
+56      P     26.6    22.4    21.8    21.0
+57      A     24.5     5.1     8.2    23.6
+58      P     20.5    17.5    19.6    18.4
+59      P     25.2    25.1    23.4    22.2
+60      P     34.7    39.5    38.6    43.3
+61      P     30.3    29.4    33.1    28.4
+62      P     26.6    25.3    25.1    27.9
+63      P     20.7    19.3    21.9    21.8
+64      A     27.7     4.0     4.2    11.7
+65      A     24.3    24.3    18.4    27.8
+66      A     36.6    23.3    40.4    39.3
+67      P     28.9    28.9    32.8    31.8
+68      A     34.0    10.7    12.6    21.2
+69      A     32.6    19.0    16.3    18.6
+70      A     29.2     9.2     8.3    18.4
+71      A     26.4    15.3    24.6    32.4
+72      A     21.8    10.6    14.4    18.7
+73      P     27.2    28.5    35.0    30.5
+74      P     22.4    22.0    19.1    18.7
+75      P     32.5    25.1    27.8    27.3
+76      P     24.9    23.6    21.2    21.1
+77      P     24.6    25.0    21.7    23.9
+78      P     23.1    20.9    21.7    19.9
+79      A     21.1     5.6     7.3    12.3
+80      P     25.8    21.9    23.6    24.8
+81      P     30.0    27.6    24.0    23.7
+82      A     22.1    21.0     8.6    24.6
+83      P     20.0    22.7    21.2    20.5
+84      P     38.1    40.8    38.0    32.7
+85      A     28.9    12.5    16.7    22.2
+86      P     25.1    28.1    27.5    24.8
+87      A     19.8    11.6    13.0    23.1
+88      P     22.1    21.1    21.5    20.6
+89      A     23.5     7.9    12.4    18.9
+90      A     29.1    16.8    15.1    18.8
+91      A     30.3     3.5     3.0    11.5
+92      P     25.4    24.3    22.7    20.1
+93      A     30.6    28.2    27.0    25.5
+94      A     22.4     7.1    17.2    18.7
+95      A     31.2    10.8    19.8    22.2
+96      A     31.4     3.9     7.0    17.8
+97      A     41.1    15.1    10.9    27.1
+98      A     29.4    22.1    25.3     4.1
+99      A     21.9     7.6    10.8    13.0
+100      A     20.7     8.1    25.7    12.3
+;
+
+data lead_long;
+ set lead;
+ y = week0; time = 0; t = 1; output;
+ y = week1; time = 1; t = 2; output;
+ y = week4; time = 4; t = 3; output;
+ y = week6; time = 6; t = 4; output;
+
+proc mixed data = lead_long;
+ class id trt t;
+ model y = trt time trt*time / s chisq;
+ repeated t / type = un sub = id r;
+run;
+
+*spline analysis;
+data spline;
+ set lead_long;
+ st1 = min(time, 1); *knot at time = 1;
+ st2 = max(0, time - 1);
+run;
+
+proc mixed data = spline;
+ class id trt t;
+ model y = trt st1 st2 st1*trt st2*trt / s chisq;
+ repeated t / type = un subject = id r;
+run;
+
+title 'Means Across Ages by Treatment';
+proc sgplot data = lead_long;
+ *mean trends;
+ vline time / response = y stat = mean group = trt
+ 			  lineattrs = (thickness = 2) markers
+ 			  markerattrs = (size = 2MM) datalabel;
+run;

@@ -1,0 +1,304 @@
+/* PROC PLAN EXAMPLES */
+
+*Example 1: randomly select 10 subjects out of a list of 25 subjects;
+
+proc plan seed = 123456;
+ factors unit = 10 of 25 random;
+ output out = ex1; run;
+ 
+proc print data = ex1; run;
+
+*Example 2: randomly assign 20 subjects to four treatments (A, B, C, D)
+*with five replicates at each level;
+
+proc plan seed = 5980;
+   factors treat = 4 ordered rep = 5 ordered;
+   output out = ex2 treat cvals=('A' 'B' 'C' 'D');
+run;
+
+proc print data = ex2; run;
+
+*Example 3: fun with proc plan;
+
+proc plan seed = 1234;
+ factors A = 5; *1 to 5 in random order;
+ *factors A = 5 ordered; *forces ordering;
+ *factors A = 5 of 8; *5 of 1 to 8 in a random order;
+ *factors A = 5 of 8 ordered; *forces ordering, even with restriction;
+ *factors A = 4 cyclic; *1 to 4 cyclic permutation;
+ *factors A = 4 of 8 cyclic (5 6 7 8); *cyclic permutation of 4 specific numbers between 1 and 8;
+ *factors A = 4 of 8 cyclic (5 6 7 8) 2; *as above but increments by 2 for a second factor;
+ *factors A = 2 ordered B = 4 of 8 cyclic (5 6 7 8) 2; *what will this do?;
+run;
+
+/* BREAD BAKING EXAMPLE */
+
+*the unrandomized design;
+data unrand;
+ do Loaf = 1 to 12;
+  if Loaf <=4 then time = 35;
+  if 5 <= Loaf <= 8 then time = 40;
+  if Loaf >= 9 then time = 45;
+  dough_height = '-------------';
+  u = ranuni(0);
+  output;
+ end;
+run;
+
+*sort by random numbers to randomize;
+proc sort data = unrand out = crd;
+ by u;
+run;
+
+*put experimental units back in order;
+data list; set crd;
+ Loaf = _n_;
+run;
+
+*print the randomized data collection form;
+proc print double;
+ var time dough_height;
+ id Loaf;
+run;
+
+*now, put in order for original example;
+data unrand;
+input Loaf time;
+datalines;
+1  45
+2  45
+3  35
+4  45
+5  45
+6  35
+7  35
+8  40
+9  40
+10 35
+11 40
+12 40
+;
+
+proc print data = unrand; run;
+
+data unrand; set unrand;
+ dough_height = '-------------';
+ output;
+run;
+
+*randomize the design with proc plan;
+proc plan seed = 27371;
+ factors Loaf = 12;
+ output data = unrand out = crd;
+run;
+
+*put experimental units back in order;
+proc sort data = crd;
+ by Loaf;
+run;
+
+*print the randomized data collection form;
+proc print double;
+ var time dough_height;
+ id Loaf;
+run;
+
+*read the data from a compact list;
+data bread;
+ input time h1-h4;
+ height = h1; output;
+ height = h2; output;
+ height = h3; output;
+ height = h4; output;
+ keep time height;
+datalines;
+30 4.5 5.0 5.5 6.75
+35 6.5 6.5 10.5 9.5
+40 9.75 8.75 6.5 8.25
+;
+
+proc print data = bread; run;
+
+*fit model with proc glm;
+proc glm;
+ class time;
+ model height = time / solution;
+run;
+
+*verify linear model assumptions;
+*ods graphics on;
+proc glm data = bread plots = diagnostics;
+  class time;
+  model height = time / solution;
+  means time / hovtest; *Levene's test;
+run;
+*ods graphics off;
+
+*Shapiro-Wilk;
+proc univariate data = bread normal;
+
+proc sort data = bread; by time;
+
+proc means data = bread;
+ var height;
+ by time;
+ output out = means mean = meanht stddev = s;
+
+*proc print data = means; run;
+
+data logs; set means;
+ logmean = log(meanht);
+ logs = log(s);
+ drop _TYPE_;
+
+proc print data = logs; run;
+ 
+proc reg data = logs;
+ model logs = logmean;
+run;
+
+proc sgplot data = logs;
+ reg y = logs x = logmean / curvelabel = "Slope = 1.29487";
+ xaxis label = "log mean";
+ yaxis label = "log standard deviation";
+run;
+
+*transformed data;
+data bread2;
+ input time h1-h4;
+ height = h1**(1-1.294869); output;
+ height = h2**(1-1.294869); output;
+ height = h3**(1-1.294869); output;
+ height = h4**(1-1.294869); output;
+ keep time height;
+datalines;
+30 4.5 5.0 5.5 6.75
+35 6.5 6.5 10.5 9.5
+40 9.75 8.75 6.5 8.25
+;
+
+proc print data = bread; run;
+proc print data = bread2; run;
+
+*fit model with proc glm;
+proc glm data = bread2 plots = diagnostics;
+ class time;
+ model height = time / solution;
+ means time / hovtest;
+run;
+
+*Shapiro-Wilk;
+proc univariate data = bread2 normal;
+
+*Welch's ANOVA;
+proc glm data = bread;
+ class time;
+ model height = time / solution;
+ means time / welch;
+run;
+
+*weighted LS?;
+data bread3;
+ merge bread logs;
+ by time;
+ invvar = 1/(s**2); output;
+run;
+
+proc print data = bread3; run;
+
+proc glm data = bread3;
+ class time;
+ weight invvar;
+ model height = time;
+run;
+
+/* WORDS EXAMPLE (via Purdue Stats) */
+
+*read the data from a compact list;
+data word;
+ input method $ w1-w5;
+ words = w1; output;
+ words = w2; output;
+ words = w3; output;
+ words = w4; output;
+ words = w5; output;
+ keep method words;
+datalines;
+A 700 850 820 640 920
+B 480 460 500 570 580
+C 500 550 480 600 610
+;
+
+proc print data = word; run;
+
+*fit model with proc glm;
+proc glm;
+ class method;
+ model words = method / solution;
+run;
+
+*verify linear model assumptions;
+*ods graphics on;
+proc glm data = word plots = diagnostics;
+  class method;
+  model words = method / solution;
+  means method / hovtest; *Levene's test;
+run;
+*ods graphics off;
+
+*Shapiro-Wilk;
+proc univariate data = word normal;
+
+proc sort data = word; by method;
+
+proc means data = word;
+ var words;
+ by method;
+ output out = means mean = meanw stddev = s;
+
+*proc print data = means; run;
+
+data logs; set means;
+ logmean = log(meanw);
+ logs = log(s);
+ drop _TYPE_;
+
+proc print data = logs; run;
+ 
+proc reg data = logs;
+ model logs = logmean;
+run;
+
+proc sgplot data = logs;
+ reg y = logs x = logmean / curvelabel = "Slope = 1.81763";
+ xaxis label = "log mean";
+ yaxis label = "log standard deviation";
+run;
+
+*transformed data;
+data word2;
+ input method $ w1-w5;
+ words = w1**(1-1.81763); output;
+ words = w2**(1-1.81763); output;
+ words = w3**(1-1.81763); output;
+ words = w4**(1-1.81763); output;
+ words = w5**(1-1.81763); output;
+ keep method words;
+datalines;
+A 700 850 820 640 920
+B 480 460 500 570 580
+C 500 550 480 600 610
+;
+
+proc print data = word; run;
+proc print data = word2; run;
+
+*fit model with proc glm;
+proc glm data = word2 plots = diagnostics;
+ class method;
+ model words = method / solution;
+ means method / hovtest;
+run;
+
+*Shapiro-Wilk;
+proc univariate data = word2 normal;

@@ -1,0 +1,255 @@
+/* Example 1: Dog Heart Rate Data from Slide 13 */
+
+data rm1;
+ input dog drug y @@;
+cards;
+1 1 2.6 1 2 4.6 1 3 5.2 1 4 4.2
+2 1 3.9 2 2 5.1 2 3 6.3 2 4 5.0
+3 1 4.2 3 2 5.8 3 3 7.1 3 4 5.8
+4 1 2.4 4 2 3.9 4 3 5.1 4 4 4.0
+5 1 3.3 5 2 5.2 5 3 6.3 5 4 3.8
+6 1 3.9 6 2 5.5 6 3 5.2 6 4 4.5
+;
+
+* analysis with proc glm;
+proc glm data = rm1;
+ class drug dog;
+ model y = drug dog;
+ lsmeans drug / pdiff adjust = tukey;
+run;
+
+* equivalent analysis with random statment;
+proc glm data = rm1;
+ class drug dog;
+ model y = drug dog;
+ random dog / test;
+ lsmeans drug / pdiff adjust = tukey;
+run;
+
+* Mauchly's test and G-G e-adjusted F-test;
+data rm2;
+ input D1 D2 D3 D4;
+cards;
+2.6 4.6 5.2 4.2
+3.9 5.1 6.3 5.0
+4.2 5.8 7.1 5.8
+2.4 3.9 5.1 4.0
+3.3 5.2 6.3 3.8
+3.9 5.5 5.2 4.5
+;
+
+proc glm data = rm2;
+ model D1-D4 = / nouni;
+ repeated drug / printe nom;
+run;
+
+* follow-up t-tests may be performed without assuming equal variances;
+data rm2;
+ input D1 D2 D3 D4;
+ D12 = D2-D1;
+ D13 = D3-D1;
+ D14 = D4-D1;
+ D23 = D3-D2;
+ D24 = D4-D2;
+ D34 = D4-D3;
+cards;
+2.6 4.6 5.2 4.2
+3.9 5.1 6.3 5.0
+4.2 5.8 7.1 5.8
+2.4 3.9 5.1 4.0
+3.3 5.2 6.3 3.8
+3.9 5.5 5.2 4.5
+;
+
+proc means data = rm2 n mean stderr t prt;
+ var D12 D13 D14 D23 D24 D34;
+run;
+
+/* Example 2: Heart Rate Data from Slide 24 */
+
+* two way RM;
+data rm;
+input S @;
+ do A = 1, 2, 3;
+  do B = 1, 2, 3, 4;
+   input Y @@;
+   output;
+  end;
+ end;
+cards;
+1 72 86 81 77 85 86 83 80 69 73 72 74
+2 78 83 88 81 82 86 80 84 66 62 67 73
+3 71 82 81 75 71 78 70 75 84 90 88 87
+4 72 83 83 69 83 88 79 81 80 81 77 72
+5 66 79 77 66 86 85 76 76 72 72 69 70
+6 74 83 84 77 85 82 83 80 65 62 65 61
+7 62 73 78 70 79 83 80 81 75 69 69 68
+8 69 75 76 70 83 84 78 81 71 70 65 65
+;
+
+proc sort data = rm;
+ by A B S;
+run;
+
+proc means mean noprint;
+ var Y;
+ by A B;
+ output out = outmean mean = ym;
+run;
+
+symbol1 V = diamond L = 1 I = join;
+symbol2 V = triangle L = 1 I = join;
+symbol3 V = circle L = 1 I = join;
+proc gplot data = outmean;
+ plot ym*B = A;
+ title3 'Drug by Time';
+run;
+
+title1 'Left (Right: Comment Out 2nd test Statement)';
+proc glm data = rm;
+ class A B S;
+ * once you include B*S(A) then the error dfs and SS are zero;
+ model Y = A S(A) B A*B B*S(A);
+ test h = A e = S(A);
+ test h = B A*B e = B*S(A);
+ lsmeans A*B;
+run;
+
+* using MSE as denominator for B and A*B;
+title1 'Center';
+proc glm data = rm;
+ class A B S;
+ model Y = A S(A) B A*B ; 
+ random S(A) / test;* assumes CS;
+ lsmeans A*B;
+run;
+
+/* Example 3: Rats Data from Slide 31 */
+
+data rm1;
+ do A=1,2,3;
+  do S=1,2,3,4,5;
+   do B = 1,2,3,4;
+    input Y @@;
+    output;
+   end;
+  end;
+ end;
+cards;
+54 60 63 74
+69 75 81 90
+77 81 87 94
+64 69 77 83
+51 58 62 71
+62 71 75 81
+68 73 81 91
+94 102 109 112
+81 90 95 104
+64 69 72 78
+59 63 66 75
+56 66 70 81
+71 77 84 80
+59 64 69 76
+65 70 73 77
+;
+
+proc glm data = rm1;
+ class A B S;
+ model Y = A S(A) B A*B B*S(A);
+ test h = A e = S(A);
+ test h = B A*B e = B*S(A);
+ lsmeans A / pdiff e = S(A);
+ lsmeans B / pdiff e = B*S(A);
+run;
+
+* when S condition does not hold;
+data rm3;
+ input A Y1 Y2 Y3 Y4;
+cards;
+1 54 60 63 74
+1 69 75 81 90
+1 77 81 87 94
+1 64 69 77 83
+1 51 58 62 71
+2 62 71 75 81
+2 68 73 81 91
+2 94 102 109 112
+2 81 90 95 104
+2 64 69 72 78
+3 59 63 66 75
+3 56 66 70 81
+3 71 77 84 80
+3 59 64 69 76
+3 65 70 73 77
+;
+
+proc glm data = rm3;
+ class A;
+ model Y1-Y4 = A;
+ repeated B 4 / printe;
+run;
+
+* Mauchly's test for the (S) condition is significant,
+* indicating that the analyses run earlier may not be the appropriate ones --
+* we now run one-way RM analyses of B within each level of A;
+proc sort data = rm3;
+ by A;
+run;
+
+proc glm data = rm3;
+ model Y1-Y4 = / nouni;
+ repeated B 4 / printe;
+ by A;
+run;
+
+/* Self-Study: Orthogonal Polynomials from Slide 38 */
+
+/* Example 4: Antifungal Data from Slide 49 */
+data antifungal;
+ input group subject p1 p2;
+ if group = 1 then do;
+  period = 1; pl = p1; treat = 'A'; output;
+  period = 2; pl = p2; treat = 'B'; output;
+ end;
+ if group = 2 then do;
+  period = 1; pl = p1; treat = 'B'; output;
+  period = 2; pl = p2; treat = 'A'; output;
+ end;
+ keep group subject period treat pl;
+datalines;
+1 2  12.8 8.2
+1 3  16.5 13.1
+1 6  18.7 15.9
+1 8  11.6 14.2
+1 11 13.6 12.8
+1 12 9.8  15.3
+1 16 12.8 14.0
+1 18 12.1 12.0
+2 1  10.9 12.3
+2 4  13.5 11.5
+2 5  13.7 16.0
+2 7  12.2 14.8
+2 9  12.6 16.2
+2 10 13.0 17.5
+2 14 10.7 7.5
+2 15 14.2 12.4
+2 17 12.2 12.8
+;
+
+proc print data = antifungal; run;
+
+proc glm data = antifungal;
+ class subject period treat;
+ model pl = subject period treat;
+ lsmeans treat / pdiff;
+ estimate 'B - A' treat -1 1;
+run;
+
+proc mixed data = antifungal;
+ class group subject period treat;
+ model pl = group period treat;
+ random subject(group);
+ lsmeans treat / pdiff;
+ estimate 'B - A' treat -1 1;
+ estimate 'Carryover Difference' group 1 -1;
+run;

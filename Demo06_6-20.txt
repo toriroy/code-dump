@@ -1,0 +1,576 @@
+/* Example 1: Family SES Data from Slide 63 */
+
+filename famecon '/home/u59445923/Data/Family Economic Data.csv';
+proc import datafile = famecon dbms = csv out = econ_longform;
+ getnames = yes;
+run;
+
+proc print data = econ_longform (obs = 50); run;
+
+data fullyear;
+ do family_id = 1 to 50;
+  do year = 1990 to 1995;
+    output;
+  end;
+ end;
+run;
+
+proc print data = fullyear (obs = 50); run;
+
+proc sort data = econ_longform;
+ by family_id year;
+run;
+
+proc sort data = fullyear;
+ by family_id year;
+run;
+
+data econ_longform2;
+ merge econ_longform fullyear;
+ by family_id year;
+run;
+
+proc print data = econ_longform2 (obs = 50); run;
+
+*convert to short data;
+data econ_wideform;
+ array xx[6] income1990 income1991 income1992
+             income1993 income1994 income1995;
+ do year = 1990 to 1995;
+  set econ_longform;
+  xx[year - 1989] = income;
+ end;
+ drop year income;
+run;
+
+proc print data = econ_wideform; run;
+
+proc sort data = econ_longform;
+ by family_id cohort;
+run;
+
+proc sgplot data = econ_longform;
+ series x = year y = income / group = family_id
+ 							  lineattrs = (pattern = 1 color = "black");
+run;
+
+proc sgplot data = econ_longform;
+ series x = year y = income / group = family_id
+ 							  lineattrs = (pattern = 1);
+run;
+
+proc sgplot data = econ_longform;
+ series x = year y = income / group = family_id;
+run;
+
+proc sort data = econ_longform;
+ by year;
+run;
+
+proc means mean data = econ_longform;
+ by year;
+ var income;
+ output out = m mean = mean_income;
+run;
+
+proc print data = m; run;
+
+data combined;
+ set econ_longform m;
+run;
+
+proc sgplot data = combined;
+ series x = year y = income / group = family_id
+ 							  lineattrs = (pattern = 1 color = "black");
+ series x = year y = mean_income / lineattrs = (pattern = 1 color = "blue" thickness = 4);
+run;
+
+proc sgpanel data = econ_longform;
+ panelby cohort / columns = 2; 
+ series x = year y = income / group = family_id
+ 							  lineattrs = (pattern = 1 color = "black");
+run;
+
+proc sgpanel data = econ_longform;
+ panelby cohort / rows = 2; 
+ series x = year y = income / group = family_id
+ 							  lineattrs = (pattern = 1 color = "black");
+run;
+
+proc sort data = econ_longform;
+ by cohort year;
+run;
+
+proc means mean data = econ_longform;
+ by cohort year;
+ var income;
+ output out = n mean = mean_income;
+run;
+
+proc print data = n; run;
+
+data combined2;
+ set econ_longform n;
+run;
+
+proc sgpanel data = combined2;
+ panelby cohort / columns = 2; 
+ series x = year y = income / group = family_id
+ 							  lineattrs = (pattern = 1 color = "black");
+ series x = year y = mean_income / lineattrs = (pattern = 1 color = "blue" thickness = 4);
+run;
+
+proc sgplot data = n;
+ series x = year y = mean_income / group = cohort
+ 								   lineattrs = (pattern = 1 thickness = 2);
+run;
+
+title 'Family Income';
+proc sgscatter data = econ_wideform;
+ matrix income1990--income1995 / diagonal = (histogram kernel);
+run;
+
+/* Example 2: Long and Short Data from Slide 78 */
+
+*start with short/wide data;
+data short;
+ input id time1 time2 time3 time4;
+cards;
+1 31 29 15 26
+2 24 28 20 32
+3 14 20 28 30
+4 38 34 30 34
+5 25 29 25 29
+6 30 28 16 34
+;
+proc print data = short; run;
+
+*convert to long data;
+data long;
+ set short;
+ time = 1; score = time1; output;
+ time = 2; score = time2; output;
+ time = 3; score = time3; output;
+ time = 4; score = time4; output;
+ drop time1 time2 time3 time4;
+run;
+
+proc print data = long; run;
+
+*convert back to short data;
+data short2;
+ array xx[4] time1 time2 time3 time4;
+ do time = 1 to 4;
+  set long;
+  xx[time] = score;
+ end;
+ drop time score;
+run;
+
+proc print data = short2; run;
+
+*again, but with proc transpose;
+
+*start with short/wide data;
+data short;
+ input id time1 time2 time3 time4;
+cards;
+1 31 29 15 26
+2 24 28 20 32
+3 14 20 28 30
+4 38 34 30 34
+5 25 29 25 29
+6 30 28 16 34
+;
+proc print data = short; run;
+
+*convert to long data;
+proc transpose data = short out = long;
+ by id;
+run;
+
+data long;
+ set long;
+ drop _name_;
+ rename col1 = time;
+run;
+
+proc print data = long; run;
+
+*convert back to short data;
+proc transpose data = long out = short2;
+ by id;
+run;
+
+data short2;
+ set short2;
+ drop _name_;
+ rename col1 = time1 col2 = time2 col3 = time3 col4 = time4;
+run;
+
+proc print data = short2; run;
+
+/* Example 3: Sphericity Violated Data from Slide 85 */
+
+data short;
+ input Group Subj y0 y1 y3 y6;
+datalines;
+1  1 296 175 187 242
+1  2 376 329 236 126
+1  3 309 238 150 173
+1  4 222  60  82 135
+1  5 150 271 250 266
+1  6 316 291 238 194
+1  7 321 364 270 358
+1  8 447 402 294 266
+1  9 220  70  95 137
+1 10 375 335 334 129
+1 11 310 300 253 190
+1 12 310 245 200 170
+2 13 282 186 225 134
+2 14 317  31  85 120
+2 15 362 104 144 114
+2 16 338 132  91  77
+2 17 263  94 141 142
+2 18 138  38  16  95
+2 19 329  62  62   6
+2 20 292 139 104 184
+2 21 275  94 135 137
+2 22 150  48  20  85
+2 23 319  68  67  12
+2 24 300 138 114  12
+;
+
+*convert to long data;
+data long;
+ set short;
+ time = 0; y = y0; output;
+ time = 1; y = y1; output;
+ time = 3; y = y3; output;
+ time = 6; y = y6; output;
+ drop y0 y1 y3 y6;
+run;
+
+proc print data = short; run;
+proc print data = long; run;
+
+proc sgscatter data = short;
+ matrix y0--y6 / diagonal = (histogram kernel);
+run;
+
+proc sgpanel noautolegend data = long;
+ panelby group;
+ *observed trends;
+ series x = time y = y / group = subj
+ 						 lineattrs = (thickness = 1);
+run;
+
+proc sgplot data = long;
+ * mean trends;
+ vline time / response = y stat = MEAN group = group
+ 			  lineattrs = (thickness = 2) markers
+ 			  markerattrs = (size = 2MM) datalabel;
+run;
+
+proc glm data = short;
+ class group;
+ model y0--y6 = group;
+ repeated time 4 (0 1 3 6) polynomial / printe printm summary;
+run;
+
+/* Example 4: Dairy Data from Slide 92 */
+
+data dairy;
+ input Diet $ Cow p1 p2 p3 p4 p5;
+datalines;
+Barley  1 3.63 3.57 3.47 3.65 3.89
+Barley  2 3.24 3.25 3.29 3.09 3.38
+Barley  3 3.98 3.60 3.43 3.30 3.29
+Barley  4 3.66 3.50 3.05 2.90 2.72
+Barley  5 4.34 3.76 3.68 3.51 3.45
+Barley  6 4.36 3.71 3.42 3.95 4.06
+Barley  7 4.17 3.60 3.52 3.10 3.78
+Barley  8 4.40 3.86 3.56 3.32 3.64
+Barley  9 3.40 3.42 3.51 3.39 3.35
+Barley 10 3.75 3.89 3.65 3.42 3.32
+Mixed  11 3.38 3.38 3.10 3.09 3.15
+Mixed  12 3.80 3.51 3.19 3.11 3.35
+Mixed  13 4.17 3.71 3.32 3.10 3.07
+Mixed  14 4.59 3.86 3.62 3.60 3.65
+Mixed  15 4.07 3.45 3.56 3.10 3.92
+Mixed  16 4.32 3.37 3.47 3.46 3.31
+Mixed  17 3.56 3.14 3.60 3.36 3.37
+Mixed  18 3.67 3.33 3.20 2.72 2.95
+Mixed  19 4.15 3.55 3.27 3.27 3.65
+Mixed  20 3.51 3.90 2.75 3.37 3.51
+Lupins 21 3.69 3.38 3.00 3.50 3.09
+Lupins 22 4.20 3.35 3.37 3.07 2.82
+Lupins 23 3.31 3.04 2.80 3.17 2.92
+Lupins 24 3.13 3.34 3.34 3.25 2.79
+Lupins 25 3.73 3.61 3.82 3.61 3.45
+Lupins 26 4.32 3.70 3.62 3.50 3.57
+Lupins 27 3.04 2.89 2.78 2.84 2.61
+Lupins 28 3.84 3.51 3.39 2.88 3.41
+Lupins 29 3.98 3.30 3.02 2.99 2.84
+Lupins 30 4.18 4.12 3.84 3.65 3.65
+;
+
+data long;
+ set dairy;
+ time = 1; p = p1; output;
+ time = 2; p = p2; output;
+ time = 3; p = p3; output;
+ time = 4; p = p4; output;
+ time = 5; p = p5; output;
+ drop p1 p2 p3 p4 p5;
+run;
+
+proc sgplot data = long;
+ * mean trends;
+ vline time / response = p stat = MEAN group = Diet
+ 			  lineattrs = (thickness = 2) markers
+ 			  markerattrs = (size = 2MM) datalabel;
+run;
+
+proc glm data = dairy;
+ class Diet;
+ model p1-p5 = Diet / nouni;
+ repeated time 5 / printe;
+run;
+
+/* Example 5: Alzheimer's Data from Slide 129 */
+
+filename alzh '/home/u59445923/Data/Alzh_wide.csv';
+* import data into SAS;
+proc import datafile = alzh replace dbms = csv out = alzh_wide;
+ getnames = yes;
+run;
+
+data alzh_long; 
+ set alzh_wide;
+ array yy(5) score1-score5;
+ do visit = 1 to 5;
+ score = yy(visit);
+ output;
+ end;
+ drop score1-score5;
+run;
+
+* mixed model approach;
+proc mixed data = alzh_long;
+ class lecithin visit idno;
+ model score = lecithin visit lecithin*visit / solution;
+ repeated visit / subject = idno type = cs r rcorr;
+run;
+
+/* Example 6: Dental Growth Data from Slide 132 */
+
+data forglm(keep = person gender y1-y4)
+     formixed(keep = person gender age y);
+ input person gender$ y1-y4;
+ output forglm;
+ y = y1; age =  8; output formixed;
+ y = y2; age = 10; output formixed;
+ y = y3; age = 12; output formixed;
+ y = y4; age = 14; output formixed;
+datalines;
+ 1 F 21.0 20.0 21.5 23.0
+ 2 F 21.0 21.5 24.0 25.5
+ 3 F 20.5 24.0 24.5 26.0
+ 4 F 23.5 24.5 25.0 26.5
+ 5 F 21.5 23.0 22.5 23.5
+ 6 F 20.0 21.0 21.0 22.5
+ 7 F 21.5 22.5 23.0 25.0
+ 8 F 23.0 23.0 23.5 24.0
+ 9 F 20.0 21.0 22.0 21.5
+10 F 16.5 19.0 19.0 19.5
+11 F 24.5 25.0 28.0 28.0
+12 M 26.0 25.0 29.0 31.0
+13 M 21.5 22.5 23.0 26.5
+14 M 23.0 22.5 24.0 27.5
+15 M 25.5 27.5 26.5 27.0
+16 M 20.0 23.5 22.5 26.0
+17 M 24.5 25.5 27.0 28.5
+18 M 22.0 22.0 24.5 26.5
+19 M 24.0 21.5 24.5 25.5
+20 M 23.0 20.5 31.0 26.0
+21 M 27.5 28.0 31.0 31.5
+22 M 23.0 23.0 23.5 25.0
+23 M 21.5 23.5 24.0 28.0
+24 M 17.0 24.5 26.0 29.5
+25 M 22.5 25.5 25.5 26.0
+26 M 23.0 24.5 26.0 30.0
+27 M 22.0 21.5 23.5 25.0
+;
+
+*plot the data;
+symbol1 i = join v = none r = 12;
+proc gplot data = formixed;
+ plot y*age = person / nolegend;
+ by gender;
+run;
+
+title 'Observed Data, All Subjects';
+proc sgpanel noautolegend data = formixed;
+ panelby gender;
+ *observed trends;
+ series x = age y = y / group = person
+ 						lineattrs = (thickness = 1);
+run;
+
+title 'Means Across Ages by Gender';
+proc sgplot data = formixed;
+ *mean trends;
+ vline age / response = y stat = mean group = gender
+ 			 lineattrs = (thickness = 2) markers
+ 			 markerattrs = (size = 2MM) datalabel;
+run;
+
+*mean plot using proc glimmix;
+proc glimmix data = formixed;
+ class gender person age;
+ model y = gender age gender*age/noint;
+ random _residual_ / subject = person type = cs;
+ lsmeans gender*age / plot = meanplot (sliceby = gender join);
+ *requests a graphical display for the interaction LS means;
+run;
+
+*correlation;
+proc corr data = forglm cov;
+ var y1 y2 y3 y4;
+run;
+
+*unstructure covariance;
+proc mixed data = formixed;
+ class gender age person;
+ model y = gender|age;
+ repeated / type = un sub = person;
+run;
+
+*CS;
+proc mixed data = formixed;
+ class gender age person;
+ model y = gender|age;
+ repeated / type = cs sub = person;
+run;
+
+*AR(1);
+proc mixed data = formixed;
+ class gender age person;
+ model y = gender|age;
+ repeated / type = ar(1) sub = person;
+run;
+
+*ARH(1);
+proc mixed data = formixed;
+ class gender age person;
+ model y = gender|age;
+ repeated / type = arh(1) sub = person;
+run;
+
+*CS that varies by gender;
+proc mixed data = formixed;
+ class gender age person;
+ model y = gender|age;
+ repeated / type = cs sub = person group = gender;
+run;
+
+proc mixed data = formixed;
+ class gender age person;
+ model y = gender|age ;
+ repeated age / subject = person type = arh(1);
+ lsmeans gender*age / slice = gender; *testing for differences among age for each gender;
+ lsmeans gender*age / slice = age; *differences in gender for each age;
+run;
+
+proc mixed data = formixed;
+ class gender age person;
+ model y = gender|age ;
+ repeated age / subject = person type = arh(1);
+ estimate 'gender' gender -1 1;
+ contrast 'Linear' age -3 -1 1 3;
+ contrast 'Quad'   age 1 -1 -1 1 ;
+ contrast 'Cubic'  age -1 3 -3 1 ;
+run;
+
+/* Example 7: Post/Change/ANOVA Data from Slide 155 */
+
+data short;
+ input Group Subj y0 y1 y3 y6;
+datalines;
+1  1 296 175 187 242
+1  2 376 329 236 126
+1  3 309 238 150 173
+1  4 222  60  82 135
+1  5 150 271 250 266
+1  6 316 291 238 194
+1  7 321 364 270 358
+1  8 447 402 294 266
+1  9 220  70  95 137
+1 10 375 335 334 129
+1 11 310 300 253 190
+1 12 310 245 200 170
+2 13 282 186 225 134
+2 14 317  31  85 120
+2 15 362 104 144 114
+2 16 338 132  91  77
+2 17 263  94 141 142
+2 18 138  38  16  95
+2 19 329  62  62   6
+2 20 292 139 104 184
+2 21 275  94 135 137
+2 22 150  48  20  85
+2 23 319  68  67  12
+2 24 300 138 114  12
+;
+
+*comparing y0 and y1;
+data data1;
+ set short;
+ drop y1 y3;
+ rename y0 = score_pre y6 = score_post;
+run;
+
+proc print data = data1; run;
+
+*ANCOVA for pre-post data;
+proc sgplot data = data1;
+ title "Scatter plot to see correlation of score_pre and score_post in each group";
+ reg x = score_pre y = score_post / group = group;
+run;
+
+*assuming pre-treatment score has an effect on post treatment score;
+*Step 1: get the mean of the score_pre values;
+proc means data = data1 mean;
+ class group;
+ var score_pre;
+run;
+
+*Step 2: center the score_pre values;
+data data2;
+ set data1;
+ score_pre_c = score_pre - 304.33333;
+ diff_score = score_pre - score_post;
+run;
+
+proc print data = data2; run;
+
+*Step 4: if the the interaction is NOT significant --
+*treatment differences adjusted for pre scores;
+proc glm data = data2;
+ model score_post = group / solution clparm;
+run;
+
+*Step 5: if the the interaction is NOT significant --
+*treatment differences in the difference;
+proc glm data = data2;
+ model diff_score = group / solution clparm;
+run;
+
+proc glm data = data2;
+ model score_post = group score_pre_c / solution clparm;
+run;
+
+/* Self Study: Soap/Stain Data from Slide 167 */
+
+/* Self Study: FMC Agricultural Chemical Data from Slide 177 */
