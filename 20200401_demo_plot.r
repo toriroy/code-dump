@@ -1,0 +1,6 @@
+a<-simulate_directtransmission(S0 = 1e3, I0 = 1, tmax = 120, scenario = 1, bd = 0.001, bf = 0, A = 1, m = 0, n = 0, g = 0.2, w = 0)
+a<-as.data.frame(a)
+plot(a[,1], a[,2], type="l", xlab="Time (days)", ylab="Number", col="black", lwd=3, xlim=c(0,120), ylim=c(0,1000))
+lines(a[,1], a[,3], type="l", col="red", lwd=3, lty=2)
+lines(a[,1], a[,4], type="l", col="green", lwd=3, lty=3)
+legend(80, 800, c("S", "I", "R"), col=c("black", "red", "green"), lty=c(1,2,3), lwd=3)

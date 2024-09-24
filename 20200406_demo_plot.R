@@ -1,0 +1,7 @@
+a<-SEIRsimulate_directtransmission(S0 = 1e3, E0=0, I0 = 1, tmax = 120, scenario = 1, bd = 0.001, bf = 0, A = 1, m = 0, n = 0, g = 0.2, w = 0, sigma=0.2)
+a<-as.data.frame(a)
+plot(a[,1], a[,2], type="l", xlab="Time (days)", ylab="Number", col="black", lwd=3, xlim=c(0,120), ylim=c(0,1000))
+lines(a[,1], a[,3], type="l", col="blue", lwd=3, lty=2)
+lines(a[,1], a[,4], type="l", col="red", lwd=3, lty=3)
+lines(a[,1], a[,5], type="l", col="green", lwd=3, lty=4)
+legend(80, 800, c("S", "E", "I", "R"), col=c("black", "blue", "red", "green"), lty=c(1,2,3,4), lwd=3)
